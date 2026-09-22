@@ -43,8 +43,25 @@ if user_message:
                     model="gemini-2.5-flash",
                     contents=user_message,
                     config={
-                        "system_instruction": (
-                            "Tum Dost AI ho, ek friendly aur helpful AI assistant. "
-                            "User Urdu, Roman Urdu ya English mein baat kar sakta hai. "
-                            "User ki language ke mutabiq jawab do. "
-                            "Jawab clear, practical aur
+                        "system_instruction"with st.spinner("Dost soch raha hai..."):
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_message,
+            config={
+                "system_instruction": (
+                    "Tum Dost AI ho, friendly aur helpful AI assistant. "
+                    "User Urdu, Roman Urdu ya English mein baat kar sakta hai. "
+                    "User ki language ke mutabiq jawab do. "
+                    "Jawab clear, practical aur natural do."
+                )
+            }
+        )
+        answer = response.text
+    except Exception as e:
+        answer = f"Sorry, error aa gaya: {e}"
+
+st.session_state.messages.append(
+    {"role": "assistant", "content": answer}
+)
+st.rerun()
