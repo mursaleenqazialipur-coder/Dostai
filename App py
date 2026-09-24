@@ -47,11 +47,15 @@ if user_message:
                             "Tum Dost AI ho, friendly aur helpful AI assistant. "
                             "User Urdu, Roman Urdu ya English mein baat kar sakta hai. "
                             "User ki language ke mutabiq jawab do. "
-                            "Jawab clear, practical aur natural do."
+                            "Jawab clear, practical aur natural do. "
+                            "User ke sawal ka seedha jawab do aur bina zarurat "
+                            "earning, freelancing ya kisi aur topic ki taraf mat le jao."
                         )
                     }
                 )
+
                 answer = response.text
+
             except Exception as e:
                 answer = f"Sorry, error aa gaya: {e}"
 
