@@ -13,7 +13,7 @@ st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat kar
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("GEMINI_API_KEY abhi configure nahi hai.")
+    st.error("GEMINI_API_KEY configure nahi hai.")
     st.stop()
 
 client = genai.Client(api_key=api_key)
@@ -23,45 +23,45 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        st.write(message["content"])
 
-user_message = st.chat_input("Dost AI se kuch poochho...")
+user_input = st.chat_input("Dost se baat karo...")
 
-if user_message:
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_message
-    })
+if user_input:
+    st.session_state.messages.append(
+        {"role": "user", "content": user_input}
+    )
 
     with st.chat_message("user"):
-        st.markdown(user_message)
+        st.write(user_input)
 
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=user_message,
-                    config={
-                        "system_instruction": (
-                            "Tum Dost AI ho, friendly aur helpful AI assistant. "
-                            "User Urdu, Roman Urdu ya English mein baat kar sakta hai. "
-                            "User ki language ke mutabiq jawab do. "
-                            "Jawab clear, practical aur natural do. "
-                            "User ke sawal ka seedha jawab do aur bina zarurat "
-                            "earning, freelancing ya kisi aur topic ki taraf mat le jao."
-                        )
-                    }
-                )
+            prompt = """
+You are Dost AI, a friendly and intelligent AI companion.
 
-                answer = response.text
+Answer the user's question directly.
+Do not give unnecessary earning, Fiverr, Upwork, Canva or freelancing advice unless the user specifically asks about earning or freelancing.
 
-            except Exception as e:
-                answer = f"Sorry, error aa gaya: {e}"
+Understand and reply in the same language as the user:
+- Urdu
+- Roman Urdu
+- English
 
-            st.markdown(answer)
+Keep answers natural, helpful, clear and practical.
+"""
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": answer
-    })
+            full_prompt = prompt + "\n\nUser:\n" + user_input
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=full_prompt
+            )
+
+            answer = response.text
+
+            st.write(answer)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer}
+    )
