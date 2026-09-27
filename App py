@@ -23,9 +23,9 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.write(message["content"])
+        st.markdown(message["content"])
 
-user_input = st.chat_input("Dost se baat karo...")
+user_input = st.chat_input("Dost se kuch bhi poochho...")
 
 if user_input:
     st.session_state.messages.append(
@@ -33,34 +33,30 @@ if user_input:
     )
 
     with st.chat_message("user"):
-        st.write(user_input)
+        st.markdown(user_input)
 
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
-            prompt = """
-You are Dost AI, a friendly and intelligent AI companion.
+            try:
+                prompt = (
+                    "You are Dost AI, a friendly and helpful AI companion. "
+                    "Answer naturally and directly. "
+                    "Reply in the same language the user uses: Urdu, Roman Urdu, or English. "
+                    "Do not give unnecessary earning or freelancing advice unless the user asks for it.\n\n"
+                    "User: " + user_input
+                )
 
-Answer the user's question directly.
-Do not give unnecessary earning, Fiverr, Upwork, Canva or freelancing advice unless the user specifically asks about earning or freelancing.
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt
+                )
 
-Understand and reply in the same language as the user:
-- Urdu
-- Roman Urdu
-- English
+                answer = response.text
 
-Keep answers natural, helpful, clear and practical.
-"""
+            except Exception as e:
+                answer = "Sorry, abhi response mein masla aa gaya hai: " + str(e)
 
-            full_prompt = prompt + "\n\nUser:\n" + user_input
-
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=full_prompt
-            )
-
-            answer = response.text
-
-            st.write(answer)
+            st.markdown(answer)
 
     st.session_state.messages.append(
         {"role": "assistant", "content": answer}
