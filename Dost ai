@@ -1,0 +1,43 @@
+import os
+import streamlit as st
+from google import genai
+
+st.title("🤖 Dost AI")
+st.write("Urdu, Roman Urdu ya English mein baat karo.")
+
+key = os.getenv("GEMINI_API_KEY")
+if not key:
+    st.error("GEMINI_API_KEY missing hai.")
+    st.stop()
+
+client = genai.Client(api_key=key)
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.write(m["content"])
+
+user = st.chat_input("Dost se kuch poochho...")
+
+if user:
+    st.session_state.messages.append({"role": "user", "content": user})
+    with st.chat_message("user"):
+        st.write(user)
+
+    with st.chat_message("assistant"):
+        try:
+            r = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=user
+            )
+            answer = r.text
+        except Exception as e:
+            answer = "Error: " + str(e)
+
+        st.write(answer)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer}
+    )
