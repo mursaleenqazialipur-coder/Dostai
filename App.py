@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from google import genai
+from google.genai import types
 
 st.set_page_config(
     page_title="Dost AI",
@@ -13,7 +14,7 @@ st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat kar
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("GEMINI_API_KEY missing hai.")
+    st.error("GEMINI_API_KEY configure nahi hai.")
     st.stop()
 
 client = genai.Client(api_key=api_key)
@@ -25,33 +26,55 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+audio = st.audio_input("🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega")
+
 user_input = st.chat_input("Dost se baat karo...")
 
+if audio:
+    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+        audio_bytes = audio.getvalue()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(
+                    data=audio_bytes,
+                    mime_type=audio.type
+                ),
+                "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
+            ]
+        )
+
+        user_input = response.text
+
 if user_input:
-    st.session_state.messages.append(
-        {"role": "user", "content": user_input}
-    )
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
 
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    system_instruction = (
+        "Tum Dost AI ho, ek friendly aur intelligent AI companion. "
+        "User jis language mein baat kare, usi language mein jawab do: "
+        "Urdu, Roman Urdu ya English. "
+        "Jawab natural, direct aur helpful hon. "
+        "Agar user na pooche to earning, freelancing ya business advice mat do."
+    )
+
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
-            try:
-                system_instruction = (
-                    "Tum Dost AI ho, ek friendly aur intelligent AI companion. "
-                    "User jis language mein baat kare, usi language mein jawab do. "
-                    "Urdu, Roman Urdu aur English support karo. "
-                    "Seedha, natural aur helpful jawab do. "
-                    "User ne na poocha ho to earning ya freelancing ki advice mat do."
-                )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=system_instruction + "\n\nUser: " + user_input
+            )
+            answer = response.text
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=user_input,
-                    config={
-                        "system_instruction": system_instruction
-                    }
-                )
+        st.markdown(answer)
 
-                answer =
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": answer
+    })
