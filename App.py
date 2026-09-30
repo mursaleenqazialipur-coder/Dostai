@@ -67,7 +67,7 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.8-flash",
                 contents=system_instruction + "\n\nUser: " + user_input
             )
             answer = response.text
