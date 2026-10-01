@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from google import genai
+from google.genai import types
 
 st.set_page_config(
     page_title="Dost AI",
@@ -23,30 +24,61 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.write(message["content"])
+        st.markdown(message["content"])
 
-user_text = st.chat_input("Dost se baat karo...")
+audio = st.audio_input("🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega")
 
-if user_text:
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_text
-    })
+user_input = st.chat_input("Dost se baat karo...")
+
+if audio:
+    audio_bytes = audio.getvalue()
+
+    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+        try:
+            result = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    "Is audio ko text mein convert karo. Jo zaban boli gayi hai usi zaban mein likho.",
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type=audio.type
+                    )
+                ]
+            )
+
+            text = result.text.strip()
+
+            if text:
+                st.session_state.messages.append(
+                    {"role": "user", "content": text}
+                )
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"Voice error: {e}")
+
+if user_input:
+    st.session_state.messages.append(
+        {"role": "user", "content": user_input}
+    )
 
     with st.chat_message("user"):
-        st.write(user_text)
+        st.markdown(user_input)
 
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=user_text
-            )
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=user_input
+                )
 
-            answer = response.text
-            st.write(answer)
+                answer = response.text
+                st.markdown(answer)
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": answer
-    })
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": answer}
+                )
+
+            except Exception as e:
+                st.error(f"AI error: {e}")
