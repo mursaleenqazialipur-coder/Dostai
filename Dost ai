@@ -35,11 +35,14 @@ if audio:
         audio_bytes = audio.getvalue()
 
         response = client.models.generate_content(
-        Update Gemini model to 3.8 flash
-            contents=[
-                types.Part.from_bytes(
-                    data=audio_bytes,
-                    mime_type=audio.type
+        
+            
+                
+                    model="gemini-3.8-flash",
+contents=[
+    types.Part.from_bytes(
+        data=
+                    
                 ),
                 "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
             ]
