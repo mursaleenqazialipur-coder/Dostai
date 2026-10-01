@@ -31,19 +31,7 @@ audio = st.audio_input("🎙️ Bolo — Dost AI tumhari awaaz ko text mein badl
 user_input = st.chat_input("Dost se baat karo...")
 
 if audio:
-    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
-        audio_bytes = audio.getvalue()
-
-        response = client.models.generate_content(model="gemini-3.8-flash",
-contents=[
-    types.Part.from_bytes(
-        data=
-                types.Part.from_bytes(
-                    data=audio_bytes,
-                    mime_type=audio.type
-                ),
-                "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
-        ]    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+        with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
         audio_bytes = audio.getvalue()
 
         response = client.models.generate_content(
