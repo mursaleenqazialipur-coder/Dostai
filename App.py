@@ -33,51 +33,29 @@ user_input = st.chat_input("Dost se baat karo...")
 if audio:
             with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
         audio_bytes = audio.getvalue()
+if audio:
+    audio_bytes = audio.getvalue()
 
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=[
-                types.Part.from_bytes(
-                    data=audio_bytes,
-                    mime_type=audio.type
-                ),
-                "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
-            ]
-        )
-
-        user_input = response.text
-        )
-
-    
-
-if user_input:
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_input
-    })
-
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    system_instruction = (
-        "Tum Dost AI ho, ek friendly aur intelligent AI companion. "
-        "User jis language mein baat kare, usi language mein jawab do: "
-        "Urdu, Roman Urdu ya English. "
-        "Jawab natural, direct aur helpful hon. "
-        "Agar user na pooche to earning, freelancing ya business advice mat do."
-    )
-
-    with st.chat_message("assistant"):
-        with st.spinner("Dost soch raha hai..."):
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=system_instruction + "\n\nUser: " + user_input
+    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+        try:
+            result = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    "Is audio ko text mein convert karo. Jo zaban boli gayi hai usi zaban mein likho.",
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type=audio.type
+                    )
+                ]
             )
-            answer = response.text
 
-        st.markdown(answer)
+            text = result.text.strip()
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": answer
-    })
+            if text:
+                st.session_state.messages.append(
+                    {"role": "user", "content": text}
+                )
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"Voice error: {e}")
