@@ -34,9 +34,10 @@ if audio:
     with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
         audio_bytes = audio.getvalue()
 
-        response = client.models.generate_content(
-            Update Gemini model to 3.8 flash
-            contents=[
+        response = client.models.generate_content(model="gemini-3.8-flash",
+contents=[
+    types.Part.from_bytes(
+        data=
                 types.Part.from_bytes(
                     data=audio_bytes,
                     mime_type=audio.type
