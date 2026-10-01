@@ -46,7 +46,7 @@ contents=[
             ]
         )
 
-        user_input = response.text
+    
 
 if user_input:
     st.session_state.messages.append({
