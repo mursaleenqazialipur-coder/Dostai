@@ -43,7 +43,21 @@ contents=[
                     mime_type=audio.type
                 ),
                 "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
+        ]    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+        audio_bytes = audio.getvalue()
+
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=[
+                types.Part.from_bytes(
+                    data=audio_bytes,
+                    mime_type=audio.type
+                ),
+                "Is audio ko text mein transcribe karo. Jo kuch user ne bola hai, wahi text mein likho."
             ]
+        )
+
+        user_input = response.text
         )
 
     
