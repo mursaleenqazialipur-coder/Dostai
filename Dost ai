@@ -35,7 +35,7 @@ if audio:
         audio_bytes = audio.getvalue()
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+        Update Gemini model to 3.8 flash
             contents=[
                 types.Part.from_bytes(
                     data=audio_bytes,
