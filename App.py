@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 from google import genai
-from google.genai import types
 
 st.set_page_config(
     page_title="Dost AI",
@@ -26,27 +25,34 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-audio = st.audio_input("🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega")
 
-user_input = st.chat_input("Dost se baat karo...")
+# 🎙️ VOICE TO TEXT
+audio = st.audio_input(
+    "🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega"
+)
 
 if audio:
     audio_bytes = audio.getvalue()
 
     with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
         try:
-            result = client.models.generate_content(
-                model="gemini-3.5-flash",
-                contents=[
-                    "Is audio ko text mein convert karo. Jo zaban boli gayi hai usi zaban mein likho.",
-                    types.Part.from_bytes(
-                        data=audio_bytes,
-                        mime_type=audio.type
-                    )
+            audio_file = client.files.upload(
+                file=audio_bytes,
+                config={"mime_type": audio.type}
+            )
+
+            interaction = client.interactions.create(
+                model="gemini-3.5-transcribe",
+                input=[
+                    {
+                        "type": "audio",
+                        "uri": audio_file.uri,
+                        "mime_type": audio_file.mime_type,
+                    }
                 ]
             )
 
-            text = result.text.strip()
+            text = interaction.output_text.strip()
 
             if text:
                 st.session_state.messages.append(
@@ -56,6 +62,10 @@ if audio:
 
         except Exception as e:
             st.error(f"Voice error: {e}")
+
+
+# 💬 NORMAL CHAT
+user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
     st.session_state.messages.append(
@@ -69,7 +79,7 @@ if user_input:
         with st.spinner("Dost soch raha hai..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-3.5-flash",
+                    model="gemini-3.5-flash-lite",
                     contents=user_input
                 )
 
