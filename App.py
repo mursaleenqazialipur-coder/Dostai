@@ -1,6 +1,8 @@
+
 import os
 import streamlit as st
 from google import genai
+from google.genai import types
 
 st.set_page_config(
     page_title="Dost AI",
@@ -26,45 +28,42 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-# 🎙️ VOICE TO TEXT
+# VOICE TO TEXT
 audio = st.audio_input(
     "🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega"
 )
 
 if audio:
-    audio_bytes = audio.getvalue()
+    try:
+        audio_bytes = audio.getvalue()
 
-    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
-        try:
-            audio_file = client.files.upload(
-                file=audio_bytes,
-                config={"mime_type": audio.type}
-            )
-
-            interaction = client.interactions.create(
-                model="gemini-3.5-transcribe",
-                input=[
-                    {
-                        "type": "audio",
-                        "uri": audio_file.uri,
-                        "mime_type": audio_file.mime_type,
-                    }
+        with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type=audio.type
+                    ),
+                    "Is audio mein jo kaha gaya hai, usay bilkul waise hi text mein likho. Urdu, Roman Urdu ya English mein jo zaban ho, wahi rakho."
                 ]
             )
 
-            text = interaction.output_text.strip()
+        text = (response.text or "").strip()
 
-            if text:
-                st.session_state.messages.append(
-                    {"role": "user", "content": text}
-                )
-                st.rerun()
+        if text:
+            st.session_state.messages.append(
+                {"role": "user", "content": text}
+            )
+            st.rerun()
+        else:
+            st.warning("Awaaz samajh nahi aayi. Dobara boliye.")
 
-        except Exception as e:
-            st.error(f"Voice error: {e}")
+    except Exception as e:
+        st.error(f"Voice error: {e}")
 
 
-# 💬 NORMAL CHAT
+# NORMAL CHAT
 user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
@@ -79,11 +78,11 @@ if user_input:
         with st.spinner("Dost soch raha hai..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-3.5-flash-lite",
+                    model="gemini-2.5-flash",
                     contents=user_input
                 )
 
-                answer = response.text
+                answer = response.text or "Dobara koshish karein."
                 st.markdown(answer)
 
                 st.session_state.messages.append(
@@ -92,3 +91,4 @@ if user_input:
 
             except Exception as e:
                 st.error(f"AI error: {e}")
+                
