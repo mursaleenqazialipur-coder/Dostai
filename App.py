@@ -39,7 +39,7 @@ if audio:
 
         with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.8-flash",
                 contents=[
                     types.Part.from_bytes(
                         data=audio_bytes,
@@ -78,7 +78,7 @@ if user_input:
         with st.spinner("Dost soch raha hai..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=user_input
                 )
 
