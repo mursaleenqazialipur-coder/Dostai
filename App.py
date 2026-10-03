@@ -1,3 +1,4 @@
+
 import os
 import hashlib
 import streamlit as st
@@ -10,7 +11,9 @@ st.set_page_config(
 )
 
 st.title("🤖 Dost AI")
-st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
+st.write(
+    "Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo."
+)
 
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -27,9 +30,39 @@ if "messages" not in st.session_state:
 if "last_audio_hash" not in st.session_state:
     st.session_state.last_audio_hash = ""
 
-# AI RESPONSE WITH FALLBACK
+if "audio_done" not in st.session_state:
+    st.session_state.audio_done = False
+
+
+# DOST AI IDENTITY
+SYSTEM_INSTRUCTION = """
+Tumhara naam Dost AI hai.
+
+Tum Gemini nahi ho.
+Tum Google nahi ho.
+Tum Dost AI ho, user ke friendly AI dost.
+
+Agar koi pooche tum kon ho, jawab do:
+Main Dost AI hoon, tumhara friendly AI dost.
+
+Agar koi kahe I love you, to friendly aur natural jawab do.
+
+User jis zaban mein baat kare, usi zaban mein jawab do:
+Urdu, Roman Urdu ya English.
+
+Jawab natural, helpful aur asaan rakho.
+Har jawab mein apna naam repeat mat karo.
+Kabhi apni identity Gemini ya Google mat batana.
+"""
+
+
+# AI RESPONSE
 def ask_ai(contents):
-    models = ["gemini-3.8-flash", "gemini-3.7-flash"]
+
+    models = [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash"
+    ]
 
     last_error = None
 
@@ -37,9 +70,16 @@ def ask_ai(contents):
         try:
             response = client.models.generate_content(
                 model=model,
-                contents=contents
+                contents=[
+                    SYSTEM_INSTRUCTION,
+                    contents
+                ]
             )
-            return response.text or "Dobara koshish karein."
+
+            answer = response.text
+
+            if answer:
+                return answer.strip()
 
         except Exception as e:
             last_error = e
@@ -49,24 +89,32 @@ def ask_ai(contents):
 
 # SHOW CHAT HISTORY
 for message in st.session_state.messages:
+
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 
 # VOICE INPUT
+st.write("🎙️ **Voice Chat**")
+
 audio = st.audio_input(
-    "🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega"
+    "Bolo — Dost AI tumhari awaaz ko text mein badlega"
 )
 
 if audio:
+
     audio_bytes = audio.getvalue()
-    audio_hash = hashlib.sha256(audio_bytes).hexdigest()
+
+    audio_hash = hashlib.sha256(
+        audio_bytes
+    ).hexdigest()
 
     if audio_hash != st.session_state.last_audio_hash:
 
         st.session_state.last_audio_hash = audio_hash
 
         try:
+
             with st.spinner("🎙️ Awaaz samajh raha hoon..."):
 
                 voice_text = ask_ai([
@@ -74,18 +122,26 @@ if audio:
                         data=audio_bytes,
                         mime_type=audio.type
                     ),
-                    "Is audio mein jo kaha gaya hai, usay bilkul waise hi text mein likho. Urdu, Roman Urdu ya English mein jo zaban ho, wahi rakho. Sirf bole gaye alfaaz likho."
+                    """
+                    Is audio mein jo kaha gaya hai,
+                    usay bilkul waise hi text mein likho.
+
+                    Urdu, Roman Urdu ya English mein
+                    jo zaban ho, wahi rakho.
+
+                    Sirf bole gaye alfaaz likho.
+                    """
                 ])
 
-                voice_text = voice_text.strip()
-
             if voice_text:
+
                 st.session_state.messages.append({
                     "role": "user",
                     "content": voice_text
                 })
 
-                with st.spinner("Dost jawab de raha hai..."):
+                with st.spinner("Dost AI jawab de raha hai..."):
+
                     answer = ask_ai(voice_text)
 
                 st.session_state.messages.append({
@@ -96,18 +152,27 @@ if audio:
                 st.rerun()
 
             else:
-                st.warning("Awaaz samajh nahi aayi. Dobara boliye.")
+
+                st.warning(
+                    "Awaaz samajh nahi aayi. Dobara boliye."
+                )
 
         except Exception as e:
+
+            st.session_state.last_audio_hash = ""
+
             st.error(
-                "Voice error: Server busy hai ya connection mein masla hai. "
+                "Voice error: Server busy hai. "
                 "Thori dair baad dobara try karein."
             )
+
             st.caption(str(e))
 
 
 # NORMAL TEXT CHAT
-user_input = st.chat_input("Dost se baat karo...")
+user_input = st.chat_input(
+    "Dost se baat karo..."
+)
 
 if user_input:
 
@@ -120,9 +185,22 @@ if user_input:
         st.markdown(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Dost soch raha hai..."):
+
+        with st.spinner("Dost AI soch raha hai..."):
+
             try:
-                answer = ask_ai(user_input)
+
+                # SEND RECENT CHAT CONTEXT
+                conversation = []
+
+                for msg in st.session_state.messages[-10:]:
+                    conversation.append(
+                        f"{msg['role']}: {msg['content']}"
+                    )
+
+                answer = ask_ai(
+                    "\n".join(conversation)
+                )
 
                 st.markdown(answer)
 
@@ -132,5 +210,11 @@ if user_input:
                 })
 
             except Exception as e:
-                st.error("AI server busy hai. Thori dair baad try karein.")
+
+                st.error(
+                    "Dost AI server busy hai. "
+                    "Thori dair baad dobara try karein."
+                )
+
                 st.caption(str(e))
+                
