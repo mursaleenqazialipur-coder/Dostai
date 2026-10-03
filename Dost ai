@@ -1,4 +1,6 @@
+
 import os
+import hashlib
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -9,7 +11,9 @@ st.set_page_config(
 )
 
 st.title("🤖 Dost AI")
-st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
+st.write(
+    "Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo."
+)
 
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -19,66 +23,197 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+# SESSION STATE
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+if "last_audio_hash" not in st.session_state:
+    st.session_state.last_audio_hash = ""
 
-audio = st.audio_input("🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega")
+if "audio_done" not in st.session_state:
+    st.session_state.audio_done = False
 
-user_input = st.chat_input("Dost se baat karo...")
 
-if audio:
-    audio_bytes = audio.getvalue()
+# DOST AI IDENTITY
+SYSTEM_INSTRUCTION = """
+Tumhara naam Dost AI hai.
 
-    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+Tum Gemini nahi ho.
+Tum Google nahi ho.
+Tum Dost AI ho, user ke friendly AI dost.
+
+Agar koi pooche tum kon ho, jawab do:
+Main Dost AI hoon, tumhara friendly AI dost.
+
+Agar koi kahe I love you, to friendly aur natural jawab do.
+
+User jis zaban mein baat kare, usi zaban mein jawab do:
+Urdu, Roman Urdu ya English.
+
+Jawab natural, helpful aur asaan rakho.
+Har jawab mein apna naam repeat mat karo.
+Kabhi apni identity Gemini ya Google mat batana.
+"""
+
+
+# AI RESPONSE
+def ask_ai(contents):
+
+    models = [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash"
+    ]
+
+    last_error = None
+
+    for model in models:
         try:
-            result = client.models.generate_content(
-                model="gemini-3.8-flash",
+            response = client.models.generate_content(
+                model=model,
                 contents=[
-                    "Is audio ko text mein convert karo. Jo zaban boli gayi hai usi zaban mein likho.",
-                    types.Part.from_bytes(
-                        data=audio_bytes,
-                        mime_type=audio.type
-                    )
+                    SYSTEM_INSTRUCTION,
+                    contents
                 ]
             )
 
-            text = result.text.strip()
+            answer = response.text
 
-            if text:
-                st.session_state.messages.append(
-                    {"role": "user", "content": text}
-                )
-                st.rerun()
+            if answer:
+                return answer.strip()
 
         except Exception as e:
-            st.error(f"Voice error: {e}")
+            last_error = e
+
+    raise last_error
+
+
+# SHOW CHAT HISTORY
+for message in st.session_state.messages:
+
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+
+# VOICE INPUT
+st.write("🎙️ **Voice Chat**")
+
+audio = st.audio_input(
+    "Bolo — Dost AI tumhari awaaz ko text mein badlega"
+)
+
+if audio:
+
+    audio_bytes = audio.getvalue()
+
+    audio_hash = hashlib.sha256(
+        audio_bytes
+    ).hexdigest()
+
+    if audio_hash != st.session_state.last_audio_hash:
+
+        st.session_state.last_audio_hash = audio_hash
+
+        try:
+
+            with st.spinner("🎙️ Awaaz samajh raha hoon..."):
+
+                voice_text = ask_ai([
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type=audio.type
+                    ),
+                    """
+                    Is audio mein jo kaha gaya hai,
+                    usay bilkul waise hi text mein likho.
+
+                    Urdu, Roman Urdu ya English mein
+                    jo zaban ho, wahi rakho.
+
+                    Sirf bole gaye alfaaz likho.
+                    """
+                ])
+
+            if voice_text:
+
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": voice_text
+                })
+
+                with st.spinner("Dost AI jawab de raha hai..."):
+
+                    answer = ask_ai(voice_text)
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
+                st.rerun()
+
+            else:
+
+                st.warning(
+                    "Awaaz samajh nahi aayi. Dobara boliye."
+                )
+
+        except Exception as e:
+
+            st.session_state.last_audio_hash = ""
+
+            st.error(
+                "Voice error: Server busy hai. "
+                "Thori dair baad dobara try karein."
+            )
+
+            st.caption(str(e))
+
+
+# NORMAL TEXT CHAT
+user_input = st.chat_input(
+    "Dost se baat karo..."
+)
 
 if user_input:
-    st.session_state.messages.append(
-        {"role": "user", "content": user_input}
-    )
+
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
 
     with st.chat_message("user"):
         st.markdown(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Dost soch raha hai..."):
+
+        with st.spinner("Dost AI soch raha hai..."):
+
             try:
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=user_input
+
+                # SEND RECENT CHAT CONTEXT
+                conversation = []
+
+                for msg in st.session_state.messages[-10:]:
+                    conversation.append(
+                        f"{msg['role']}: {msg['content']}"
+                    )
+
+                answer = ask_ai(
+                    "\n".join(conversation)
                 )
 
-                answer = response.text
                 st.markdown(answer)
 
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": answer}
-                )
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
 
             except Exception as e:
-                st.error(f"AI error: {e}")
+
+                st.error(
+                    "Dost AI server busy hai. "
+                    "Thori dair baad dobara try karein."
+                )
+
+                st.caption(str(e))
