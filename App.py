@@ -1,5 +1,5 @@
-
 import os
+import hashlib
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -20,56 +20,101 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+# SESSION STATE
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "last_audio_hash" not in st.session_state:
+    st.session_state.last_audio_hash = ""
+
+# AI RESPONSE WITH FALLBACK
+def ask_ai(contents):
+    models = ["gemini-3.8-flash", "gemini-3.7-flash"]
+
+    last_error = None
+
+    for model in models:
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=contents
+            )
+            return response.text or "Dobara koshish karein."
+
+        except Exception as e:
+            last_error = e
+
+    raise last_error
+
+
+# SHOW CHAT HISTORY
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 
-# VOICE TO TEXT
+# VOICE INPUT
 audio = st.audio_input(
     "🎙️ Bolo — Dost AI tumhari awaaz ko text mein badlega"
 )
 
 if audio:
-    try:
-        audio_bytes = audio.getvalue()
+    audio_bytes = audio.getvalue()
+    audio_hash = hashlib.sha256(audio_bytes).hexdigest()
 
-        with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=[
+    if audio_hash != st.session_state.last_audio_hash:
+
+        st.session_state.last_audio_hash = audio_hash
+
+        try:
+            with st.spinner("🎙️ Awaaz samajh raha hoon..."):
+
+                voice_text = ask_ai([
                     types.Part.from_bytes(
                         data=audio_bytes,
                         mime_type=audio.type
                     ),
-                    "Is audio mein jo kaha gaya hai, usay bilkul waise hi text mein likho. Urdu, Roman Urdu ya English mein jo zaban ho, wahi rakho."
-                ]
+                    "Is audio mein jo kaha gaya hai, usay bilkul waise hi text mein likho. Urdu, Roman Urdu ya English mein jo zaban ho, wahi rakho. Sirf bole gaye alfaaz likho."
+                ])
+
+                voice_text = voice_text.strip()
+
+            if voice_text:
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": voice_text
+                })
+
+                with st.spinner("Dost jawab de raha hai..."):
+                    answer = ask_ai(voice_text)
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
+                st.rerun()
+
+            else:
+                st.warning("Awaaz samajh nahi aayi. Dobara boliye.")
+
+        except Exception as e:
+            st.error(
+                "Voice error: Server busy hai ya connection mein masla hai. "
+                "Thori dair baad dobara try karein."
             )
-
-        text = (response.text or "").strip()
-
-        if text:
-            st.session_state.messages.append(
-                {"role": "user", "content": text}
-            )
-            st.rerun()
-        else:
-            st.warning("Awaaz samajh nahi aayi. Dobara boliye.")
-
-    except Exception as e:
-        st.error(f"Voice error: {e}")
+            st.caption(str(e))
 
 
-# NORMAL CHAT
+# NORMAL TEXT CHAT
 user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
-    st.session_state.messages.append(
-        {"role": "user", "content": user_input}
-    )
+
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
 
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -77,18 +122,15 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
             try:
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=user_input
-                )
+                answer = ask_ai(user_input)
 
-                answer = response.text or "Dobara koshish karein."
                 st.markdown(answer)
 
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": answer}
-                )
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
 
             except Exception as e:
-                st.error(f"AI error: {e}")
-                
+                st.error("AI server busy hai. Thori dair baad try karein.")
+                st.caption(str(e))
