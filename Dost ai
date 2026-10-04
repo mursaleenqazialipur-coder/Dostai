@@ -4,22 +4,13 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# =========================
-# PAGE
-# =========================
-
 st.set_page_config(
     page_title="Dost AI",
     page_icon="🤖"
 )
 
 st.title("🤖 Dost AI")
-st.write("Your Friendly AI Assistant")
-st.caption("Chat in English, Urdu or Roman Urdu.")
-
-# =========================
-# API
-# =========================
+st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -29,99 +20,55 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# =========================
-# SYSTEM PROMPT
-# =========================
+MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite"
+]
 
 SYSTEM_PROMPT = """
 Tumhara naam Dost AI hai.
+
 Tum ek friendly aur intelligent AI assistant ho.
 
 Agar user poochay tum kon ho, to jawab do:
 "Main Dost AI hoon, tumhara AI dost."
 
 User jis language mein baat kare, usi language mein jawab do.
+
 Urdu, Roman Urdu aur English samjho.
+
 Seedha, natural aur helpful jawab do.
 
 Apni pehchan Gemini ya Google AI ke naam se mat batao.
 
-Agar user voice recording bheje:
-- recording ko dhyan se samjho
-- jo baat user ne kahi hai usi ka jawab do
-- agar awaaz samajhne mein mushkil ho to andaza laga kar galat jawab na do
-- sirf tab kaho ke dobara thori clear awaaz mein bolen jab recording waqai unclear ho
-- user ko be-wajah text mein likhne ko mat kaho
+User ki baat ka seedha jawab do.
+Be-wajah ye mat kaho ke text mein likho.
 """
 
-# =========================
-# MODELS
-# =========================
 
-MODELS = [
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite"
-]
-
-
-# =========================
-# ASK DOST
-# =========================
-
-def ask_dost(user_text=None, audio=None):
-
+def ask_dost(user_text):
     contents = []
 
-    # Previous conversation
     for msg in st.session_state.messages[-10:]:
-
         contents.append({
             "role": msg["role"],
             "parts": [
-                {
-                    "text": msg["content"]
-                }
+                {"text": msg["content"]}
             ]
         })
 
-    parts = []
-
-    # Text
-    if user_text:
-        parts.append({
-            "text": user_text
-        })
-
-    # Voice
-    if audio is not None:
-
-        audio_data = audio.getvalue()
-
-        if not audio_data:
-            raise Exception("Audio recording empty hai.")
-
-        parts.append(
-            types.Part.from_bytes(
-                data=audio_data,
-                mime_type=audio.type
-            )
-        )
-
     contents.append({
         "role": "user",
-        "parts": parts
+        "parts": [
+            {"text": user_text}
+        ]
     })
 
     last_error = None
 
-    # Try models
     for model in MODELS:
-
-        # Retry twice
         for attempt in range(2):
-
             try:
-
                 response = client.models.generate_content(
                     model=model,
                     contents=contents,
@@ -132,180 +79,105 @@ def ask_dost(user_text=None, audio=None):
                     )
                 )
 
-                if response.text:
-                    return response.text.strip()
+                answer = (response.text or "").strip()
+
+                if answer:
+                    return answer
 
                 last_error = "Dost AI ne khaali jawab diya."
 
             except Exception as e:
-
                 last_error = str(e)
-
-                # Small delay before retry
                 time.sleep(2)
 
     raise Exception(last_error)
 
 
-# =========================
-# MESSAGE HISTORY
-# =========================
+def transcribe_voice(audio):
+    audio_data = audio.getvalue()
+
+    if not audio_data:
+        raise Exception("Audio recording empty hai.")
+
+    audio_type = audio.type or "audio/wav"
+
+    prompt = """
+Is voice recording ko dhyan se suno.
+
+Sirf user ki boli hui baat ko exact text mein likho.
+
+Koi jawab mat do.
+Koi explanation mat do.
+Koi guess mat karo.
+
+User jis language mein bola hai, usi language mein transcript do.
+
+Agar kuch alfaaz clear na hon to un alfaaz ka andaza mat lagao.
+Agar poori recording samajh na aaye to sirf:
+[UNCLEAR]
+likho.
+"""
+
+    contents = [
+        {
+            "role": "user",
+            "parts": [
+                {"text": prompt},
+                types.Part.from_bytes(
+                    data=audio_data,
+                    mime_type=audio_type
+                )
+            ]
+        }
+    ]
+
+    last_error = None
+
+    for model in MODELS:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        temperature=0,
+                        max_output_tokens=500
+                    )
+                )
+
+                transcript = (response.text or "").strip()
+
+                if transcript:
+                    return transcript
+
+                last_error = "Voice ka transcript khaali hai."
+
+            except Exception as e:
+                last_error = str(e)
+                time.sleep(2)
+
+    raise Exception(last_error)
+
+
+# -------------------------
+# CHAT HISTORY
+# -------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
 for message in st.session_state.messages:
-
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 
-# =========================
+# -------------------------
 # VOICE
-# =========================
+# -------------------------
 
 st.subheader("🎙️ Voice se baat karein")
-
-st.write(
-    "Bolo — Dost AI tumhari awaaz samjhega."
-)
+st.write("Bolo — Dost AI pehle tumhari awaaz ko text mein samjhega.")
 
 audio = st.audio_input(
-    "🎙️ Apni awaaz record karein"
-)
-
-
-if st.button(
-    "📤 Recording bhejein",
-    use_container_width=True
-):
-
-    if audio is None:
-
-        st.warning(
-            "Pehle apni awaaz record karein."
-        )
-
-    else:
-
-        audio_size = len(audio.getvalue())
-
-        # Very large recording protection
-        if audio_size > 10 * 1024 * 1024:
-
-            st.error(
-                "Recording bohat lambi hai. "
-                "Please 1 minute ya us se kam ki recording bhejein."
-            )
-
-        else:
-
-            with st.spinner(
-                "🎙️ Dost AI aapki awaaz samajh raha hai..."
-            ):
-
-                try:
-
-                    answer = ask_dost(
-                        user_text=(
-                            "Is voice recording ko dhyan se suno. "
-                            "User ne jo baat kahi hai usay samjho "
-                            "aur usi baat ka seedha natural jawab do. "
-                            "User se be-wajah text mein likhne ko mat kaho."
-                        ),
-                        audio=audio
-                    )
-
-                    # Save voice message
-                    st.session_state.messages.append({
-                        "role": "user",
-                        "content": "🎙️ Voice message"
-                    })
-
-                    # Save AI answer
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": answer
-                    })
-
-                    st.rerun()
-
-                except Exception as e:
-
-                    error_text = str(e).lower()
-
-                    if "503" in error_text:
-
-                        st.error(
-                            "🤖 Gemini server abhi busy hai. "
-                            "10–20 seconds baad dobara try karein."
-                        )
-
-                    elif "429" in error_text:
-
-                        st.error(
-                            "⚠️ Voice ki limit temporarily exceed ho gayi hai. "
-                            "Thori dair baad dobara try karein."
-                        )
-
-                    elif "400" in error_text:
-
-                        st.error(
-                            "🎙️ Recording process nahi ho saki. "
-                            "Please chhoti aur clear recording try karein."
-                        )
-
-                    else:
-
-                        st.error(
-                            "🎙️ Voice process nahi ho saki. "
-                            "Please 30–60 seconds ki clear recording "
-                            "ke saath dobara try karein."
-                        )
-
-
-# =========================
-# TEXT CHAT
-# =========================
-
-user_text = st.chat_input(
-    "Dost se baat karo..."
-)
-
-
-if user_text:
-
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_text
-    })
-
-    with st.chat_message("user"):
-        st.markdown(user_text)
-
-    with st.chat_message("assistant"):
-
-        with st.spinner(
-            "Dost soch raha hai..."
-        ):
-
-            try:
-
-                answer = ask_dost(
-                    user_text=user_text
-                )
-
-                st.markdown(answer)
-
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer
-                })
-
-            except Exception:
-
-                st.error(
-                    "Dost AI server busy hai. "
-                    "Thori dair baad dobara try karein."
-                )
+   
