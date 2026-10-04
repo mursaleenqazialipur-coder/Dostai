@@ -160,7 +160,7 @@ if user_text:
                     "content": answer
                 })
 
-            except Exception:
-                st.error(
+            except Exception as e:
+    st.error(f"Voice Error: {e}")
                     "Dost AI server busy hai. Thori dair baad dobara try karein."
                 )
