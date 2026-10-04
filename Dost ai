@@ -31,8 +31,7 @@ Main Dost AI hoon, tumhara AI dost.
 User jis language mein baat kare, usi language mein jawab do.
 Urdu, Roman Urdu aur English samajho.
 Jawab seedha, helpful aur asaan rakho.
-User ke sawal ka jawab do, bila wajah doosri baatein na karo.
-Apni pehchan ChatGPT ya Gemini na batao.
+Apni pehchan Gemini ya Google AI na batao.
 """
 
 MODELS = [
@@ -43,22 +42,20 @@ MODELS = [
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Purani chat dikhana
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+
 def ask_dost(user_input, audio=None):
     contents = []
 
-    # Chat history
     for msg in st.session_state.messages[-10:]:
         contents.append({
             "role": msg["role"],
             "parts": [{"text": msg["content"]}]
         })
 
-    # Naya message
     parts = [{"text": user_input}]
 
     if audio is not None:
@@ -100,26 +97,30 @@ def ask_dost(user_input, audio=None):
 
     raise Exception(last_error)
 
-# Voice feature
-st.subheader("🎙️ Voice se baat karein")
 
-audio = st.audio_input("Bolo — Dost AI tumhari awaaz samjhega")
+# Recording system
+st.subheader("🎙️ Dost se awaaz mein baat karein")
 
-if st.button("🎤 Awaaz bhejein", use_container_width=True):
+audio = st.audio_input("🎙️ Apni awaaz record karein")
+
+if st.button("📤 Recording bhejein", use_container_width=True):
+
     if audio is None:
-        st.warning("Pehle apni awaaz record karein.")
-    else:
-        with st.spinner("Dost tumhari awaaz sun raha hai..."):
-            try:
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": "🎙️ Voice message"
-                })
+        st.warning("Pehle recording karein.")
 
+    else:
+        with st.spinner("Dost aapki recording sun raha hai..."):
+
+            try:
                 answer = ask_dost(
-                    "Is audio ko samjho aur user ki baat ka jawab do. Agar audio mein sawal hai to uska jawab do.",
+                    "User ki recording suno. Uski baat samjho aur seedha jawab do. Audio ko text mein likhne ki zaroorat nahi.",
                     audio
                 )
+
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": "🎙️ Aapki voice recording"
+                })
 
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -128,16 +129,17 @@ if st.button("🎤 Awaaz bhejein", use_container_width=True):
 
                 st.rerun()
 
-            except Exception:
+            except Exception as e:
                 st.error(
-                    "Dost AI ke dono servers busy hain. "
-                    "Thori dair baad dobara koshish karein."
+                    "Dost AI server busy hai ya connection mein masla hai. Thori dair baad dobara koshish karein."
                 )
+
 
 # Text chat
 user_text = st.chat_input("Dost se baat karo...")
 
 if user_text:
+
     st.session_state.messages.append({
         "role": "user",
         "content": user_text
@@ -148,6 +150,7 @@ if user_text:
 
     with st.chat_message("assistant"):
         with st.spinner("Dost soch raha hai..."):
+
             try:
                 answer = ask_dost(user_text)
                 st.markdown(answer)
@@ -159,6 +162,5 @@ if user_text:
 
             except Exception:
                 st.error(
-                    "Dost AI ke dono servers busy hain. "
-                    "Thori dair baad dobara try karein."
+                    "Dost AI server busy hai. Thori dair baad dobara try karein."
                 )
