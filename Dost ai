@@ -1,10 +1,12 @@
-
 import os
 import time
 import streamlit as st
 from google import genai
 from google.genai import types
 
+# -----------------------------
+# PAGE SETTINGS
+# -----------------------------
 st.set_page_config(
     page_title="Dost AI",
     page_icon="🤖"
@@ -13,6 +15,9 @@ st.set_page_config(
 st.title("🤖 Dost AI")
 st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
+# -----------------------------
+# API KEY
+# -----------------------------
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -21,43 +26,96 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+# -----------------------------
+# DOST AI PERSONALITY
+# -----------------------------
 SYSTEM_PROMPT = """
 Tumhara naam Dost AI hai.
-Tum user ke friendly aur intelligent AI dost ho.
 
-Agar koi poochay tum kon ho, to kaho:
-Main Dost AI hoon, tumhara AI dost.
+Tum ek friendly, intelligent aur helpful AI assistant ho.
 
-User jis language mein baat kare, usi language mein jawab do.
-Urdu, Roman Urdu aur English samajho.
-Jawab seedha, helpful aur asaan rakho.
-Apni pehchan Gemini ya Google AI na batao.
+Agar user poochay:
+"Kon ho tum?"
+"Who are you?"
+"Ap kon ho?"
+
+To jawab do:
+"Main Dost AI hoon, tumhara AI dost."
+
+Important rules:
+
+1. User jis language mein baat kare, usi language mein jawab do.
+2. Roman Urdu ho to Roman Urdu mein jawab do.
+3. Urdu ho to Urdu mein jawab do.
+4. English ho to English mein jawab do.
+5. User ki baat ko pehle samjho, phir jawab do.
+6. Bina wajah greeting ya "Walaikum Assalam" mat bolo.
+7. Agar user sirf ek simple sawal kare to seedha jawab do.
+8. Har jawab mein "Dost AI" ka naam repeat mat karo.
+9. Apni identity Gemini ya Google AI na batao.
+10. Friendly lekin natural انداز mein baat karo.
+11. Agar user voice message bheje to audio mein kahi gayi asli baat samajh kar usi ka jawab do.
+12. Voice message ko greeting samajh kar automatic greeting mat do.
 """
 
+# -----------------------------
+# MODELS
+# -----------------------------
 MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite"
 ]
 
+# -----------------------------
+# CHAT MEMORY
+# -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# -----------------------------
+# SHOW OLD MESSAGES
+# -----------------------------
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 
+# -----------------------------
+# ASK DOST AI
+# -----------------------------
 def ask_dost(user_input, audio=None):
+
     contents = []
 
+    # Previous conversation
     for msg in st.session_state.messages[-10:]:
+
+        # Voice placeholder ko model ko mat bhejo
+        if msg["content"] == "🎙️ Voice message":
+            continue
+
         contents.append({
             "role": msg["role"],
-            "parts": [{"text": msg["content"]}]
+            "parts": [
+                {
+                    "text": msg["content"]
+                }
+            ]
         })
 
-    parts = [{"text": user_input}]
+    # Current message
+    parts = []
 
+    if user_input:
+        parts.append(
+            {
+                "text": user_input
+            }
+        )
+
+    # Audio
     if audio is not None:
         parts.append(
             types.Part.from_bytes(
@@ -73,9 +131,13 @@ def ask_dost(user_input, audio=None):
 
     last_error = None
 
+    # Try models one by one
     for model in MODELS:
+
         for attempt in range(2):
+
             try:
+
                 response = client.models.generate_content(
                     model=model,
                     contents=contents,
@@ -87,41 +149,60 @@ def ask_dost(user_input, audio=None):
                 )
 
                 if response.text:
-                    return response.text
+                    return response.text.strip()
 
                 last_error = "Model ne khaali jawab diya."
 
             except Exception as e:
+
                 last_error = str(e)
+
+                # Thori dair wait
                 time.sleep(2)
 
     raise Exception(last_error)
 
 
-# Recording system
+# -----------------------------
+# VOICE SECTION
+# -----------------------------
 st.subheader("🎙️ Dost se awaaz mein baat karein")
 
-audio = st.audio_input("🎙️ Apni awaaz record karein")
+audio = st.audio_input(
+    "🎙️ Apni awaaz record karein"
+)
 
-if st.button("📤 Recording bhejein", use_container_width=True):
+if st.button(
+    "📤 Recording bhejein",
+    use_container_width=True
+):
 
     if audio is None:
-        st.warning("Pehle recording karein.")
+
+        st.warning(
+            "Pehle apni awaaz record karein."
+        )
 
     else:
-        with st.spinner("Dost aapki recording sun raha hai..."):
+
+        with st.spinner(
+            "🎙️ Dost aapki awaaz sun raha hai..."
+        ):
 
             try:
+
                 answer = ask_dost(
-                    "User ki recording suno. Uski baat samjho aur seedha jawab do. Audio ko text mein likhne ki zaroorat nahi.",
+                    "User ne voice message bheja hai. Audio ko dhyan se suno, user ki asli baat samjho aur usi baat ka seedha jawab do. Agar user ne koi sawal poocha hai to uska jawab do. Agar user ne sirf greeting ki hai to natural greeting ka jawab do.",
                     audio
                 )
 
+                # Save voice message
                 st.session_state.messages.append({
                     "role": "user",
-                    "content": "🎙️ Aapki voice recording"
+                    "content": "🎙️ Voice message"
                 })
 
+                # Save AI answer
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": answer
@@ -129,38 +210,55 @@ if st.button("📤 Recording bhejein", use_container_width=True):
 
                 st.rerun()
 
-            except Exception as e:
+            except Exception:
+
                 st.error(
-                    "Dost AI server busy hai ya connection mein masla hai. Thori dair baad dobara koshish karein."
+                    "Dost AI server busy hai ya voice process mein masla aa gaya. Thori dair baad dobara try karein."
                 )
 
 
-# Text chat
-user_text = st.chat_input("Dost se baat karo...")
+# -----------------------------
+# TEXT CHAT
+# -----------------------------
+user_text = st.chat_input(
+    "Dost se baat karo..."
+)
 
 if user_text:
 
+    # Save user message
     st.session_state.messages.append({
         "role": "user",
         "content": user_text
     })
 
+    # Show user message
     with st.chat_message("user"):
         st.markdown(user_text)
 
+    # AI answer
     with st.chat_message("assistant"):
-        with st.spinner("Dost soch raha hai..."):
+
+        with st.spinner(
+            "Dost soch raha hai..."
+        ):
 
             try:
-                answer = ask_dost(user_text)
+
+                answer = ask_dost(
+                    user_text
+                )
+
                 st.markdown(answer)
 
+                # Save AI answer
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": answer
                 })
 
-            except Exception as e:
-    st.error(f"Voice Error: {e}")
+            except Exception:
+
+                st.error(
                     "Dost AI server busy hai. Thori dair baad dobara try karein."
                 )
