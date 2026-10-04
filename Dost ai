@@ -4,20 +4,15 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# -----------------------------
-# PAGE SETTINGS
-# -----------------------------
 st.set_page_config(
     page_title="Dost AI",
     page_icon="🤖"
 )
 
 st.title("🤖 Dost AI")
-st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
+st.write("Your Friendly AI Assistant")
+st.caption("Chat in English, Urdu or Roman Urdu.")
 
-# -----------------------------
-# API KEY
-# -----------------------------
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -26,96 +21,49 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# -----------------------------
-# DOST AI PERSONALITY
-# -----------------------------
 SYSTEM_PROMPT = """
 Tumhara naam Dost AI hai.
+Tum ek friendly aur intelligent AI assistant ho.
 
-Tum ek friendly, intelligent aur helpful AI assistant ho.
-
-Agar user poochay:
-"Kon ho tum?"
-"Who are you?"
-"Ap kon ho?"
-
-To jawab do:
+Agar user poochay tum kon ho, to jawab do:
 "Main Dost AI hoon, tumhara AI dost."
 
-Important rules:
+User jis language mein baat kare, usi language mein jawab do.
+Urdu, Roman Urdu aur English samjho.
+Seedha, natural aur helpful jawab do.
 
-1. User jis language mein baat kare, usi language mein jawab do.
-2. Roman Urdu ho to Roman Urdu mein jawab do.
-3. Urdu ho to Urdu mein jawab do.
-4. English ho to English mein jawab do.
-5. User ki baat ko pehle samjho, phir jawab do.
-6. Bina wajah greeting ya "Walaikum Assalam" mat bolo.
-7. Agar user sirf ek simple sawal kare to seedha jawab do.
-8. Har jawab mein "Dost AI" ka naam repeat mat karo.
-9. Apni identity Gemini ya Google AI na batao.
-10. Friendly lekin natural انداز mein baat karo.
-11. Agar user voice message bheje to audio mein kahi gayi asli baat samajh kar usi ka jawab do.
-12. Voice message ko greeting samajh kar automatic greeting mat do.
+Apni pehchan Gemini ya Google AI ke naam se mat batao.
+User ki voice recording mein jo baat kahi gayi ho, usay samjho
+aur usi baat ka natural jawab do.
 """
 
-# -----------------------------
-# MODELS
-# -----------------------------
 MODELS = [
-    "gemini-3.8-flash",
-    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite"
 ]
 
-# -----------------------------
-# CHAT MEMORY
-# -----------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
-# -----------------------------
-# SHOW OLD MESSAGES
-# -----------------------------
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-
-# -----------------------------
-# ASK DOST AI
-# -----------------------------
-def ask_dost(user_input, audio=None):
+def ask_dost(user_text, audio=None):
 
     contents = []
 
     # Previous conversation
     for msg in st.session_state.messages[-10:]:
-
-        # Voice placeholder ko model ko mat bhejo
-        if msg["content"] == "🎙️ Voice message":
-            continue
-
         contents.append({
             "role": msg["role"],
             "parts": [
-                {
-                    "text": msg["content"]
-                }
+                {"text": msg["content"]}
             ]
         })
 
-    # Current message
     parts = []
 
-    if user_input:
-        parts.append(
-            {
-                "text": user_input
-            }
-        )
+    if user_text:
+        parts.append({
+            "text": user_text
+        })
 
-    # Audio
+    # Voice recording
     if audio is not None:
         parts.append(
             types.Part.from_bytes(
@@ -131,13 +79,11 @@ def ask_dost(user_input, audio=None):
 
     last_error = None
 
-    # Try models one by one
     for model in MODELS:
 
         for attempt in range(2):
 
             try:
-
                 response = client.models.generate_content(
                     model=model,
                     contents=contents,
@@ -149,28 +95,39 @@ def ask_dost(user_input, audio=None):
                 )
 
                 if response.text:
-                    return response.text.strip()
+                    return response.text
 
-                last_error = "Model ne khaali jawab diya."
+                last_error = "Khaali jawab mila."
 
             except Exception as e:
-
                 last_error = str(e)
-
-                # Thori dair wait
                 time.sleep(2)
 
     raise Exception(last_error)
 
 
-# -----------------------------
-# VOICE SECTION
-# -----------------------------
-st.subheader("🎙️ Dost se awaaz mein baat karein")
+# Conversation history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+
+for message in st.session_state.messages:
+
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+
+# =========================
+# VOICE
+# =========================
+
+st.subheader("🎙️ Voice se baat karein")
+st.write("Bolo — Dost AI tumhari awaaz samjhega.")
 
 audio = st.audio_input(
     "🎙️ Apni awaaz record karein"
 )
+
 
 if st.button(
     "📤 Recording bhejein",
@@ -186,23 +143,25 @@ if st.button(
     else:
 
         with st.spinner(
-            "🎙️ Dost aapki awaaz sun raha hai..."
+            "🎙️ Dost AI aapki awaaz samajh raha hai..."
         ):
 
             try:
 
                 answer = ask_dost(
-                    "User ne voice message bheja hai. Audio ko dhyan se suno, user ki asli baat samjho aur usi baat ka seedha jawab do. Agar user ne koi sawal poocha hai to uska jawab do. Agar user ne sirf greeting ki hai to natural greeting ka jawab do.",
+                    "Is voice recording ko suno. "
+                    "User ne jo baat kahi hai usay samjho "
+                    "aur uska seedha natural jawab do.",
                     audio
                 )
 
-                # Save voice message
+                # Show voice message
                 st.session_state.messages.append({
                     "role": "user",
                     "content": "🎙️ Voice message"
                 })
 
-                # Save AI answer
+                # Show AI answer
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": answer
@@ -213,30 +172,30 @@ if st.button(
             except Exception:
 
                 st.error(
-                    "Dost AI server busy hai ya voice process mein masla aa gaya. Thori dair baad dobara try karein."
+                    "Dost AI abhi voice process nahi kar saka. "
+                    "Thori dair baad dobara try karein."
                 )
 
 
-# -----------------------------
+# =========================
 # TEXT CHAT
-# -----------------------------
+# =========================
+
 user_text = st.chat_input(
     "Dost se baat karo..."
 )
 
+
 if user_text:
 
-    # Save user message
     st.session_state.messages.append({
         "role": "user",
         "content": user_text
     })
 
-    # Show user message
     with st.chat_message("user"):
         st.markdown(user_text)
 
-    # AI answer
     with st.chat_message("assistant"):
 
         with st.spinner(
@@ -251,7 +210,6 @@ if user_text:
 
                 st.markdown(answer)
 
-                # Save AI answer
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": answer
@@ -260,5 +218,6 @@ if user_text:
             except Exception:
 
                 st.error(
-                    "Dost AI server busy hai. Thori dair baad dobara try karein."
+                    "Dost AI server busy hai. "
+                    "Thori dair baad dobara try karein."
                 )
