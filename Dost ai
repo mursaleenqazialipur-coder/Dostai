@@ -3,23 +3,20 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-
 # -----------------------------
-# Page Settings
+# Page setup
 # -----------------------------
 st.set_page_config(
     page_title="Dost AI",
-    page_icon="🤖"
+    page_icon="🤖",
+    layout="centered"
 )
 
 st.title("🤖 Dost AI")
-st.write(
-    "Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo."
-)
-
+st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
 # -----------------------------
-# Gemini API Key
+# Gemini API
 # -----------------------------
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -29,245 +26,153 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-
 # -----------------------------
-# Chat History
+# Session memory
+# Har user/session ki chat alag
 # -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
 # -----------------------------
-# Dost AI System Instructions
+# Dost AI personality
 # -----------------------------
-system_instruction = """
-Tum Dost AI ho — user ke liye ek friendly AI dost.
+SYSTEM_INSTRUCTION = """
+Tum Dost AI ho — ek friendly, helpful aur respectful AI dost.
 
-Tum Urdu, Roman Urdu aur English mein baat kar sakte ho.
-
-IMPORTANT LANGUAGE RULE:
-User jis language mein baat kare, usi language mein jawab do.
-Roman Urdu ho to Roman Urdu mein jawab do.
-Urdu ho to Urdu mein jawab do.
-English ho to English mein jawab do.
-
-USER PROFILE:
-- Naam: Mursaleen Ali
-- Education: 12th / FA
-- Kaam: Construction work
-- Dost AI project ka owner/developer: Mursaleen Ali
-
-PERSONAL INFORMATION RULE:
-User ki personal information sirf tab use karo jab user
-apne baare mein pooche.
-
-Examples:
-
-Agar user pooche:
-"Mera naam kya hai?"
-to jawab:
-"Tumhara naam Mursaleen Ali hai."
-
-Agar user pooche:
-"Meri education kya hai?"
-to jawab:
-"Tumhari education 12th / FA hai."
-
-Agar user pooche:
-"Main kya kaam karta hoon?"
-to jawab:
-"Tum construction work karte ho."
-
-Agar user pooche:
-"Main kaun hoon?"
-to available profile information ke mutabiq simple jawab do.
-
-Agar user pooche:
-"Tum mere baare mein kya jaante ho?"
-to USER PROFILE mein available information bata sakte ho.
-
-Agar user pooche:
-"Kya tum meri personal information jaante ho?"
-to batao ke haan, profile/context mein jo information available hai
-sirf wahi maloom hai.
-
-PRIVACY:
-USER PROFILE ki information normal/general conversation mein
-khud se mention mat karo.
-
-Agar user kisi normal sawal ka jawab pooch raha ho,
-to uske jawab mein naam, education ya kaam unnecessarily mention mat karo.
-
-USER PROFILE mein jo information nahi hai usay invent mat karo.
-
-Agar user kisi personal information ke baare mein pooche
-aur woh USER PROFILE mein available nahi hai,
-to clearly batao ke woh information available nahi hai.
-
-IDENTITY:
-Agar user pooche:
-"Tum kon ho?"
-to jawab do:
-"Main Dost AI hoon, tumhara AI dost."
-
-NORMAL CONVERSATION:
-Jawab seedha, natural aur friendly rakho.
-
-Normal sawalon par unnecessary:
-- Fiverr
-- Upwork
-- Canva
-- CapCut
-- freelancing
-- online earning
-
-ki advice mat do jab tak user khud na pooche.
-
-VOICE:
-Agar voice message mile to usay samjho aur user ke sawal ka
-natural jawab do.
-
-Voice message mein agar user apni personal information pooche,
-to USER PROFILE ke rules follow karo.
-
-Personal information ko unnecessarily repeat mat karo.
+Rules:
+1. User jis language mein baat kare, usi language mein jawab do.
+2. Roman Urdu ho to Roman Urdu mein jawab do.
+3. Urdu ho to Urdu mein jawab do.
+4. English ho to English mein jawab do.
+5. User ke current conversation messages ko context ke taur par use karo.
+6. Agar user pooche "main kon hoon?" ya "aap mere baare mein kya jaante ho?",
+   to sirf wahi information batao jo user ne isi current conversation/session
+   mein khud share ki ho.
+7. Kisi doosre user ki information kabhi share mat karo.
+8. Agar user ne apna naam nahi bataya, to naam guess mat karo.
+9. Apne aap ko insaan mat batao. Tum Dost AI ho.
+10. Short, natural aur friendly jawab do.
+11. User se unnecessary personal information mat maango.
+12. Fiverr, Upwork, Canva, CapCut ya earning ki lecture-type advice
+    tab tak mat do jab tak user khud na pooche.
 """
 
-
 # -----------------------------
-# Show Previous Chat
+# Previous chat display
 # -----------------------------
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.write(message["content"])
-
+        st.markdown(message["content"])
 
 # -----------------------------
-# Voice Input
+# Voice input
 # -----------------------------
-st.subheader("🎙️ Voice se baat karein")
+st.subheader("🎙️ Voice message")
 
 audio = st.audio_input(
-    "Bolo — Dost AI tumhari awaaz samjhega"
+    "🎙️ Voice se baat karein — bolo, Dost AI tumhari awaaz ko text mein badlega"
 )
 
 if audio is not None:
-
     try:
         audio_bytes = audio.getvalue()
 
-        with st.spinner("Dost AI sun raha hai..."):
-
-            uploaded_file = client.files.upload(
-                file=audio_bytes,
-                config={
-                    "mime_type": audio.type
-                }
-            )
-
+        with st.spinner("Dost tumhari awaaz samajh raha hai..."):
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-2.5-flash",
                 contents=[
                     types.Content(
                         role="user",
                         parts=[
-                            types.Part.from_uri(
-                                file_uri=uploaded_file.uri,
-                                mime_type=uploaded_file.mime_type
+                            types.Part.from_bytes(
+                                data=audio_bytes,
+                                mime_type=audio.type
                             ),
                             types.Part.from_text(
                                 text=(
-                                    "Is voice message ko samjho aur "
-                                    "user ke sawal ka jawab do. "
-                                    "User jis language mein bole, "
-                                    "usi language mein jawab do. "
-                                    "Dost AI ke system instructions "
-                                    "aur USER PROFILE rules follow karo. "
-                                    "Agar user apni personal information "
-                                    "ke baare mein pooche to available "
-                                    "profile information use karo."
+                                    "Is voice message ko samjho aur user ki baat ka "
+                                    "seedha jawab do. User jis language mein bol raha "
+                                    "hai, usi language mein jawab do."
                                 )
                             )
                         ]
                     )
                 ],
                 config=types.GenerateContentConfig(
-                    system_instruction=system_instruction
+                    system_instruction=SYSTEM_INSTRUCTION
                 )
             )
 
         answer = response.text
 
-        if not answer:
-            answer = "Dost AI voice message ka jawab nahi bana saka."
-
         st.session_state.messages.append(
-            {
-                "role": "user",
-                "content": "🎙️ Voice message"
-            }
+            {"role": "user", "content": "🎙️ Voice message"}
         )
 
         st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
+            {"role": "assistant", "content": answer}
         )
 
         st.rerun()
 
     except Exception as e:
         st.error("Voice message process nahi ho saka.")
-        st.code(str(e))
-
+        st.caption(str(e))
 
 # -----------------------------
-# Text Chat
+# Text chat
 # -----------------------------
 user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
-
+    # User message save
     st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_input
-        }
+        {"role": "user", "content": user_input}
     )
 
     with st.chat_message("user"):
-        st.write(user_input)
+        st.markdown(user_input)
+
+    # Conversation context
+    conversation = []
+
+    for message in st.session_state.messages:
+        conversation.append(
+            {
+                "role": message["role"],
+                "parts": [{"text": message["content"]}]
+            }
+        )
 
     try:
-
         with st.chat_message("assistant"):
-
             with st.spinner("Dost soch raha hai..."):
 
                 response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=user_input,
+                    model="gemini-2.5-flash",
+                    contents=conversation,
                     config=types.GenerateContentConfig(
-                        system_instruction=system_instruction
+                        system_instruction=SYSTEM_INSTRUCTION
                     )
                 )
 
                 answer = response.text
-
-                if not answer:
-                    answer = "Dost AI abhi jawab nahi de saka."
-
-                st.write(answer)
+                st.markdown(answer)
 
         st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
+            {"role": "assistant", "content": answer}
         )
 
     except Exception as e:
+        st.error("Dost AI se response nahi aa saka.")
+        st.caption(str(e))
 
-        st.error("AI response nahi de saka.")
-        st.code(str(e))
+Ab sirf ye 3 kaam karo:
+
+1. "App.py" kholo.
+2. Saara purana code delete karke upar wala code paste karo.
+3. Commit message mein likho:
+
+"Complete Dost AI text and voice chat"
+
+Phir Commit changes dabao.
