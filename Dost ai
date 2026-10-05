@@ -3,15 +3,24 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
+
+# -----------------------------
+# Page Settings
+# -----------------------------
 st.set_page_config(
     page_title="Dost AI",
     page_icon="🤖"
 )
 
 st.title("🤖 Dost AI")
-st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
+st.write(
+    "Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo."
+)
 
-# Gemini API key
+
+# -----------------------------
+# Gemini API Key
+# -----------------------------
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -20,61 +29,122 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# Chat history
+
+# -----------------------------
+# Chat History
+# -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Dost AI ka context + user profile
+
+# -----------------------------
+# Dost AI System Instructions
+# -----------------------------
 system_instruction = """
 Tum Dost AI ho — user ke liye ek friendly AI dost.
 
 Tum Urdu, Roman Urdu aur English mein baat kar sakte ho.
+
+IMPORTANT LANGUAGE RULE:
 User jis language mein baat kare, usi language mein jawab do.
-
-IMPORTANT:
-Agar user pooche:
-- "Kiya tum meri personal information jantay ho?"
-- "Tum mere baare mein kya jantay ho?"
-- "Meri information batao"
-- ya isi tarah ka koi sawal,
-
-to neeche di gayi USER PROFILE mein jo information available hai,
-sirf wahi information batao.
+Roman Urdu ho to Roman Urdu mein jawab do.
+Urdu ho to Urdu mein jawab do.
+English ho to English mein jawab do.
 
 USER PROFILE:
 - Naam: Mursaleen Ali
+- Education: 12th / FA
 - Kaam: Construction work
-- Taleem: 12th / FA
 - Dost AI project ka owner/developer: Mursaleen Ali
 
-Privacy:
-USER PROFILE ki information sirf tab use karo jab user apne
-baare mein pooche ya sawal ka jawab dene ke liye zaroori ho.
-Agar koi information USER PROFILE mein nahi hai to usay
-khud se invent mat karo.
-Kabhi yeh mat kehna ke tum user ke baare mein "kuch bhi nahi jaante"
-jab USER PROFILE mein relevant information available ho.
+PERSONAL INFORMATION RULE:
+User ki personal information sirf tab use karo jab user
+apne baare mein pooche.
 
-Tum apne aap ko hamesha Dost AI ke naam se identify karo jab
-user pooche ke tum kon ho.
+Examples:
 
-Normal sawalon par unnecessary earning, Fiverr, Upwork, Canva,
-CapCut ya freelancing ki advice mat do.
+Agar user pooche:
+"Mera naam kya hai?"
+to jawab:
+"Tumhara naam Mursaleen Ali hai."
 
+Agar user pooche:
+"Meri education kya hai?"
+to jawab:
+"Tumhari education 12th / FA hai."
+
+Agar user pooche:
+"Main kya kaam karta hoon?"
+to jawab:
+"Tum construction work karte ho."
+
+Agar user pooche:
+"Main kaun hoon?"
+to available profile information ke mutabiq simple jawab do.
+
+Agar user pooche:
+"Tum mere baare mein kya jaante ho?"
+to USER PROFILE mein available information bata sakte ho.
+
+Agar user pooche:
+"Kya tum meri personal information jaante ho?"
+to batao ke haan, profile/context mein jo information available hai
+sirf wahi maloom hai.
+
+PRIVACY:
+USER PROFILE ki information normal/general conversation mein
+khud se mention mat karo.
+
+Agar user kisi normal sawal ka jawab pooch raha ho,
+to uske jawab mein naam, education ya kaam unnecessarily mention mat karo.
+
+USER PROFILE mein jo information nahi hai usay invent mat karo.
+
+Agar user kisi personal information ke baare mein pooche
+aur woh USER PROFILE mein available nahi hai,
+to clearly batao ke woh information available nahi hai.
+
+IDENTITY:
+Agar user pooche:
+"Tum kon ho?"
+to jawab do:
+"Main Dost AI hoon, tumhara AI dost."
+
+NORMAL CONVERSATION:
 Jawab seedha, natural aur friendly rakho.
-User ki personal information ko unnecessarily repeat mat karo.
 
-Agar user pooche ke tum uski personal information kahan se jaante ho,
-to batao ke woh information Dost AI ke profile/context mein di gayi hai.
+Normal sawalon par unnecessary:
+- Fiverr
+- Upwork
+- Canva
+- CapCut
+- freelancing
+- online earning
+
+ki advice mat do jab tak user khud na pooche.
+
+VOICE:
+Agar voice message mile to usay samjho aur user ke sawal ka
+natural jawab do.
+
+Voice message mein agar user apni personal information pooche,
+to USER PROFILE ke rules follow karo.
+
+Personal information ko unnecessarily repeat mat karo.
 """
 
-# Purani chat display
+
+# -----------------------------
+# Show Previous Chat
+# -----------------------------
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
 
-# Voice input
+# -----------------------------
+# Voice Input
+# -----------------------------
 st.subheader("🎙️ Voice se baat karein")
 
 audio = st.audio_input(
@@ -82,34 +152,18 @@ audio = st.audio_input(
 )
 
 if audio is not None:
+
     try:
         audio_bytes = audio.getvalue()
 
-        uploaded_file = client.files.upload(
-            file=audio_bytes,
-            config={"mime_type": audio.type}
-        )
+        with st.spinner("Dost AI sun raha hai..."):
 
-        with st.spinner("Dost AI sun raha hai..."):User ki personal information:
-
-- Naam: Mursaleen Ali
-- Education: 12th / FA
-- Kaam: Construction work
-
-In maloomat ko sirf tab use karo jab user apne baare mein pooche, jaise:
-"mera naam kya hai?", "meri education kya hai?", "main kya kaam karta hoon?"
-Agar user normal/general sawal kare to ye personal information khud se mention na karo.
-
-Agar user pooche "Mera naam kya hai?" to jawab do:
-"Tumhara naam Mursaleen Ali hai."
-
-Agar user pooche "Meri education kya hai?" to jawab do:
-"Tumhari education 12th / FA hai."
-
-Agar user pooche "Main kya kaam karta hoon?" to jawab do:
-"Tum construction work karte ho."
-
-Personal information ke baare mein jawab dete waqt seedha aur simple jawab do.
+            uploaded_file = client.files.upload(
+                file=audio_bytes,
+                config={
+                    "mime_type": audio.type
+                }
+            )
 
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
@@ -122,17 +176,17 @@ Personal information ke baare mein jawab dete waqt seedha aur simple jawab do.
                                 mime_type=uploaded_file.mime_type
                             ),
                             types.Part.from_text(
-                                text="""
-Is voice message ko samjho aur user ke sawal ka jawab do.
-
-USER PROFILE aur Dost AI ke system instructions ko follow karo.
-
-Agar user apni personal information ke baare mein pooche,
-to available USER PROFILE ki information batao.
-
-User jis language mein baat kare, usi language mein jawab do.
-Seedha aur natural jawab do.
-"""
+                                text=(
+                                    "Is voice message ko samjho aur "
+                                    "user ke sawal ka jawab do. "
+                                    "User jis language mein bole, "
+                                    "usi language mein jawab do. "
+                                    "Dost AI ke system instructions "
+                                    "aur USER PROFILE rules follow karo. "
+                                    "Agar user apni personal information "
+                                    "ke baare mein pooche to available "
+                                    "profile information use karo."
+                                )
                             )
                         ]
                     )
@@ -144,12 +198,21 @@ Seedha aur natural jawab do.
 
         answer = response.text
 
+        if not answer:
+            answer = "Dost AI voice message ka jawab nahi bana saka."
+
         st.session_state.messages.append(
-            {"role": "user", "content": "🎙️ Voice message"}
+            {
+                "role": "user",
+                "content": "🎙️ Voice message"
+            }
         )
 
         st.session_state.messages.append(
-            {"role": "assistant", "content": answer}
+            {
+                "role": "assistant",
+                "content": answer
+            }
         )
 
         st.rerun()
@@ -159,20 +222,27 @@ Seedha aur natural jawab do.
         st.code(str(e))
 
 
-# Text chat
+# -----------------------------
+# Text Chat
+# -----------------------------
 user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
 
     st.session_state.messages.append(
-        {"role": "user", "content": user_input}
+        {
+            "role": "user",
+            "content": user_input
+        }
     )
 
     with st.chat_message("user"):
         st.write(user_input)
 
     try:
+
         with st.chat_message("assistant"):
+
             with st.spinner("Dost soch raha hai..."):
 
                 response = client.models.generate_content(
@@ -184,12 +254,20 @@ if user_input:
                 )
 
                 answer = response.text
+
+                if not answer:
+                    answer = "Dost AI abhi jawab nahi de saka."
+
                 st.write(answer)
 
         st.session_state.messages.append(
-            {"role": "assistant", "content": answer}
+            {
+                "role": "assistant",
+                "content": answer
+            }
         )
 
     except Exception as e:
+
         st.error("AI response nahi de saka.")
         st.code(str(e))
