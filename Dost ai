@@ -90,7 +90,26 @@ if audio is not None:
             config={"mime_type": audio.type}
         )
 
-        with st.spinner("Dost AI sun raha hai..."):
+        with st.spinner("Dost AI sun raha hai..."):User ki personal information:
+
+- Naam: Mursaleen Ali
+- Education: 12th / FA
+- Kaam: Construction work
+
+In maloomat ko sirf tab use karo jab user apne baare mein pooche, jaise:
+"mera naam kya hai?", "meri education kya hai?", "main kya kaam karta hoon?"
+Agar user normal/general sawal kare to ye personal information khud se mention na karo.
+
+Agar user pooche "Mera naam kya hai?" to jawab do:
+"Tumhara naam Mursaleen Ali hai."
+
+Agar user pooche "Meri education kya hai?" to jawab do:
+"Tumhari education 12th / FA hai."
+
+Agar user pooche "Main kya kaam karta hoon?" to jawab do:
+"Tum construction work karte ho."
+
+Personal information ke baare mein jawab dete waqt seedha aur simple jawab do.
 
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
