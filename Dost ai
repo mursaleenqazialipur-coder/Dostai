@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from google import genai
+from google.genai import types
 
 st.set_page_config(
     page_title="Dost AI",
@@ -10,7 +11,7 @@ st.set_page_config(
 st.title("🤖 Dost AI")
 st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
-# Gemini API
+# Gemini API key
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -19,32 +20,147 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+# User profile — values Streamlit Secrets se aayengi
+user_name = st.secrets.get("USER_NAME", "")
+user_education = st.secrets.get("USER_EDUCATION", "")
+user_work = st.secrets.get("USER_WORK", "")
+
+system_instruction = f"""
+Tum Dost AI ho, ek friendly AI assistant.
+
+User ki profile:
+Naam: {user_name}
+Education: {user_education}
+Kaam: {user_work}
+
+IMPORTANT:
+- Jab user apni personal information ke bare mein pooche,
+  profile mein di hui information ke mutabiq jawab do.
+- Jab user pooche "meri education kya hai?", to user ki education batao.
+- Jab user pooche "main kya kaam karta hoon?", to "construction work" batao.
+- User ke bare mein wahi information use karo jo profile mein di gayi hai.
+- Apne bare mein pooche jane par batao ke tum Dost AI ho.
+- User ki information ko kisi aur person ki information ke saath mix mat karo.
+- User jis language mein baat kare, usi language mein jawab do.
+- Roman Urdu mein simple aur natural jawab do.
+- Be-wajah Fiverr, Upwork, Canva, CapCut ya earning lectures mat do.
+"""
+
 # Chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Purani chat dikhana
+# Purani chat display
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
+
+# Text chat
+prompt = st.chat_input("Dost se baat karo...")
+
+if prompt:
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt
+    })
+
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Dost soch raha hai..."):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.8-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction
+                    )
+                )
+
+                answer = response.text
+                st.write(answer)
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
+            except Exception as e:
+                st.error(f"AI error: {e}")
 
 # Voice input
 st.subheader("🎙️ Voice se baat karein")
 audio = st.audio_input("Bolo — Dost AI tumhari awaaz samjhega")
 
-# Text input
-prompt = st.chat_input("Dost se baat karo...")
+if audio:
+    with st.spinner("Dost tumhari awaaz samajh raha hai..."):
+        try:
+            audio_bytes = audio.getvalue()
 
-# Voice ko text mein convert karna
-if audio is not None:
-    try:
-        audio_bytes = audio.getvalue()
+            uploaded_file = client.files.upload(
+                file=audio_bytes,
+                config={"mime_type": audio.type}
+            )
 
-        with st.spinner("Dost tumhari awaaz samajh raha hai..."):
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
                 contents=[
-                    {
-                        "role": "user",
-                        "parts": [
-                           
+                    types.Part.from_uri(
+                        file_uri=uploaded_file.uri,
+                        mime_type=uploaded_file.mime_type
+                    ),
+                    """
+                    Is voice message ko samjho.
+                    User ki baat ka seedha jawab do.
+                    User jis language mein bole, usi language mein jawab do.
+                    """
+                ],
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction
+                )
+            )
+
+            answer = response.text
+
+            st.write("🎙️ Voice message")
+            st.write(answer)
+
+            st.session_state.messages.append({
+                "role": "user",
+                "content": "🎙️ Voice message"
+            })
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": answer
+            })
+
+        except Exception as e:
+            st.error(f"Voice error: {e}")
+
+2. Streamlit Secrets mein ye add karo
+
+API key ko mat chherna. Uske neeche ye 3 lines add karo:
+
+USER_NAME = "Mursaleen Ali"
+USER_EDUCATION = "12th / FA"
+USER_WORK = "construction work"
+
+⚠️ Ye information public GitHub "App.py" mein nahi hai. Ye Streamlit Secrets mein rahegi.
+
+3. Phir Commit
+
+GitHub mein Commit changes karo.
+
+Uske baad app mein test karo:
+
+“Meri education kya hai?”
+
+Expected jawab: “Aapki education 12th / FA hai.”
+
+Phir:
+
+“Main kya kaam karta hoon?”
+
+Expected jawab: “Aap construction work karte hain.”
