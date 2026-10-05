@@ -1,17 +1,26 @@
 import os
-import time
 import streamlit as st
 from google import genai
 from google.genai import types
 
+# -----------------------------
+# Page settings
+# -----------------------------
 st.set_page_config(
     page_title="Dost AI",
-    page_icon="🤖"
+    page_icon="🤖",
+    layout="centered"
 )
 
+# -----------------------------
+# App title
+# -----------------------------
 st.title("🤖 Dost AI")
 st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
+# -----------------------------
+# Gemini API
+# -----------------------------
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -20,164 +29,202 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-MODELS = [
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite"
-]
-
-SYSTEM_PROMPT = """
-Tumhara naam Dost AI hai.
-
-Tum ek friendly aur intelligent AI assistant ho.
-
-Agar user poochay tum kon ho, to jawab do:
-"Main Dost AI hoon, tumhara AI dost."
-
-User jis language mein baat kare, usi language mein jawab do.
-
-Urdu, Roman Urdu aur English samjho.
-
-Seedha, natural aur helpful jawab do.
-
-Apni pehchan Gemini ya Google AI ke naam se mat batao.
-
-User ki baat ka seedha jawab do.
-Be-wajah ye mat kaho ke text mein likho.
-"""
-
-
-def ask_dost(user_text):
-    contents = []
-
-    for msg in st.session_state.messages[-10:]:
-        contents.append({
-            "role": msg["role"],
-            "parts": [
-                {"text": msg["content"]}
-            ]
-        })
-
-    contents.append({
-        "role": "user",
-        "parts": [
-            {"text": user_text}
-        ]
-    })
-
-    last_error = None
-
-    for model in MODELS:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.7,
-                        max_output_tokens=1024
-                    )
-                )
-
-                answer = (response.text or "").strip()
-
-                if answer:
-                    return answer
-
-                last_error = "Dost AI ne khaali jawab diya."
-
-            except Exception as e:
-                last_error = str(e)
-                time.sleep(2)
-
-    raise Exception(last_error)
-
-
-def transcribe_voice(audio):
-    audio_data = audio.getvalue()
-
-    if not audio_data:
-        raise Exception("Audio recording empty hai.")
-
-    audio_type = audio.type or "audio/wav"
-
-    prompt = """
-Is voice recording ko dhyan se suno.
-
-Sirf user ki boli hui baat ko exact text mein likho.
-
-Koi jawab mat do.
-Koi explanation mat do.
-Koi guess mat karo.
-
-User jis language mein bola hai, usi language mein transcript do.
-
-Agar kuch alfaaz clear na hon to un alfaaz ka andaza mat lagao.
-Agar poori recording samajh na aaye to sirf:
-[UNCLEAR]
-likho.
-"""
-
-    contents = [
-        {
-            "role": "user",
-            "parts": [
-                {"text": prompt},
-                types.Part.from_bytes(
-                    data=audio_data,
-                    mime_type=audio_type
-                )
-            ]
-        }
-    ]
-
-    last_error = None
-
-    for model in MODELS:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        temperature=0,
-                        max_output_tokens=500
-                    )
-                )
-
-                transcript = (response.text or "").strip()
-
-                if transcript:
-                    return transcript
-
-                last_error = "Voice ka transcript khaali hai."
-
-            except Exception as e:
-                last_error = str(e)
-                time.sleep(2)
-
-    raise Exception(last_error)
-
-
-# -------------------------
-# CHAT HISTORY
-# -------------------------
-
+# -----------------------------
+# Chat history
+# -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
+# -----------------------------
+# Show previous messages
+# -----------------------------
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        st.write(message["content"])
+
+# -----------------------------
+# Dost AI instructions
+# -----------------------------
+SYSTEM_PROMPT = """
+Tum Dost AI ho.
+
+Tum user ke friendly AI dost ho.
+
+User jis language mein baat kare:
+- Urdu mein jawab do to Urdu mein.
+- Roman Urdu mein jawab do to Roman Urdu mein.
+- English mein jawab do to English mein.
+
+Jawab natural, helpful aur seedha do.
+
+Agar user pooche "Kon ho tum?" to batao:
+"Main Dost AI hoon, tumhara AI dost."
+
+User ke normal sawalon ka seedha jawab do.
+Bina zaroorat Fiverr, Upwork, freelancing, Canva, CapCut ya earning ke lectures mat do.
+
+Agar sawal simple ho to jawab bhi simple rakho.
+"""
+
+# -----------------------------
+# Gemini response function
+# -----------------------------
+def ask_dost(user_text):
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(
+                            text=SYSTEM_PROMPT + "\n\nUser:\n" + user_text
+                        )
+                    ]
+                )
+            ]
+        )
+
+        if response.text:
+            return response.text
+
+        return "Maaf kijiye, mujhe is waqt jawab nahi mila."
+
+    except Exception as e:
+        error_text = str(e)
+
+        if "503" in error_text:
+            return "AI server is waqt busy hai. Thori dair baad dobara try karein."
+
+        if "429" in error_text:
+            return "AI ki free limit filhaal khatam ho gayi hai. Thori dair baad dobara try karein."
+
+        return "AI se jawab lene mein masla aa gaya. Dobara try karein."
 
 
-# -------------------------
-# VOICE
-# -------------------------
-
+# -----------------------------
+# Voice section
+# -----------------------------
 st.subheader("🎙️ Voice se baat karein")
-st.write("Bolo — Dost AI pehle tumhari awaaz ko text mein samjhega.")
+st.write("Bolo — Dost AI tumhari awaaz samjhega")
 
-audio = st.audio_input(
-   
+audio = st.audio_input("🎙️ Bolo")
+
+if audio is not None:
+
+    with st.spinner("🎙️ Awaaz ko text mein badal raha hoon..."):
+
+        try:
+            audio_bytes = audio.getvalue()
+
+            uploaded_file = client.files.upload(
+                file=audio_bytes,
+                config={
+                    "mime_type": audio.type
+                }
+            )
+
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=SYSTEM_PROMPT +
+                                """
+
+Is audio recording mein user ki baat hai.
+
+Pehle audio ko samajh kar uski baat ko text mein samjho.
+Phir usi baat ka natural jawab do.
+
+Sirf jawab do. Audio ka zikr mat karo.
+"""
+                            ),
+                            types.Part.from_uri(
+                                file_uri=uploaded_file.uri,
+                                mime_type=uploaded_file.mime_type
+                            )
+                        ]
+                    )
+                ]
+            )
+
+            if response.text:
+                voice_answer = response.text
+
+                st.chat_message("user").write("🎙️ Voice message")
+                st.chat_message("assistant").write(voice_answer)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "user",
+                        "content": "🎙️ Voice message"
+                    }
+                )
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": voice_answer
+                    }
+                )
+
+            else:
+                st.error("Voice samajhne mein masla aa gaya.")
+
+        except Exception as e:
+            error_text = str(e)
+
+            if "503" in error_text:
+                st.error("AI server busy hai. Thori dair baad try karein.")
+
+            elif "429" in error_text:
+                st.error("AI ki free limit filhaal khatam ho gayi hai. Thori dair baad try karein.")
+
+            else:
+                st.error("Voice mein error aa gaya. Dobara record karke try karein.")
+
+
+# -----------------------------
+# Normal text chat
+# -----------------------------
+user_message = st.chat_input("Dost se baat karo...")
+
+if user_message:
+
+    st.chat_message("user").write(user_message)
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": user_message
+        }
+    )
+
+    with st.chat_message("assistant"):
+
+        with st.spinner("Dost soch raha hai..."):
+            answer = ask_dost(user_message)
+
+        st.write(answer)
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": answer
+        }
+    )
+
+Ab GitHub mein:
+
+1. "App.py" kholo.
+2. Edit ✏️ dabao.
+3. Purana poora code delete karo.
+4. Upar wala code poora paste karo.
+5. Commit changes dabao.
+6. Commit message likho: "Fix voice and chat"
+7. Streamlit ko restart/redeploy hone do.
+
+Important: Agar "gemini-3.8-flash" par phir 503 ya 429 aaye, woh code ki syntax problem nahi hogi—woh Gemini server/free quota ka issue hoga.
