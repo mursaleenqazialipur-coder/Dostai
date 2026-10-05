@@ -2,204 +2,49 @@ import os
 import streamlit as st
 from google import genai
 
-# -----------------------------
-# PAGE SETTINGS
-# -----------------------------
 st.set_page_config(
     page_title="Dost AI",
     page_icon="🤖"
 )
 
-# -----------------------------
-# TITLE
-# -----------------------------
 st.title("🤖 Dost AI")
-st.write(
-    "Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo."
-)
+st.write("Tumhara friendly AI dost — Urdu, Roman Urdu ya English mein baat karo.")
 
-# -----------------------------
-# API KEY
-# -----------------------------
+# Gemini API
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
     st.error("GEMINI_API_KEY configure nahi hai.")
     st.stop()
 
-# -----------------------------
-# GEMINI CLIENT
-# -----------------------------
 client = genai.Client(api_key=api_key)
 
-# -----------------------------
-# DOST AI PERSONALITY
-# -----------------------------
-SYSTEM_INSTRUCTION = """
-Tum Dost AI ho.
-
-Tum ek friendly, helpful aur intelligent AI dost ho.
-
-Rules:
-1. User jis language mein baat kare, usi language mein jawab do.
-2. Agar user Roman Urdu mein baat kare to Roman Urdu mein jawab do.
-3. Agar user Urdu mein baat kare to Urdu mein jawab do.
-4. Agar user English mein baat kare to English mein jawab do.
-5. Seedha aur useful jawab do.
-6. Bina zarurat lambi lecture mat do.
-7. User se naturally aur friendly tareeqe se baat karo.
-8. Agar user pooche "Kon ho tum?" to batao ke tum Dost AI ho.
-9. Har normal sawal par be-wajah Fiverr, Upwork, Canva, CapCut ya earning ka lecture mat do.
-10. User ke sawal ka direct jawab do.
-"""
-
-# -----------------------------
-# CHAT HISTORY
-# -----------------------------
+# Chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Purani messages show karo
+# Purani chat dikhana
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# -----------------------------
-# VOICE INPUT
-# -----------------------------
+# Voice input
 st.subheader("🎙️ Voice se baat karein")
+audio = st.audio_input("Bolo — Dost AI tumhari awaaz samjhega")
 
-audio = st.audio_input(
-    "Bolo — Dost AI tumhari awaaz samjhega"
-)
+# Text input
+prompt = st.chat_input("Dost se baat karo...")
 
-# -----------------------------
-# VOICE PROCESSING
-# -----------------------------
+# Voice ko text mein convert karna
 if audio is not None:
+    try:
+        audio_bytes = audio.getvalue()
 
-    # Same recording ko dobara process na karo
-    audio_id = audio.getvalue()
-
-    if st.session_state.get("last_audio") != audio_id:
-
-        st.session_state.last_audio = audio_id
-
-        with st.spinner("🎙️ Dost AI tumhari awaaz sun raha hai..."):
-
-            try:
-                # Audio Gemini ko upload karo
-                audio_file = client.files.upload(
-                    file=audio,
-                    config={
-                        "mime_type": audio.type
-                    }
-                )
-
-                # Audio ko samjho aur jawab do
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=[
-                        SYSTEM_INSTRUCTION,
-                        audio_file,
-                        """
-                        Is voice recording mein user ne jo kaha hai
-                        usko samjho aur uska direct jawab do.
-
-                        Agar user ne sirf koi normal baat kahi hai,
-                        to naturally reply karo.
-
-                        User ki language ko follow karo.
-                        """
-                    ]
-                )
-
-                answer = response.text
-
-                if answer:
-                    st.session_state.messages.append(
-                        {
-                            "role": "user",
-                            "content": "🎙️ Voice message"
-                        }
-                    )
-
-                    st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": answer
-                        }
-                    )
-
-                    st.rerun()
-
-                else:
-                    st.error("Dost AI ko jawab nahi mila.")
-
-            except Exception as e:
-                st.error(
-                    "Voice mein masla aa gaya. Thori dair baad dobara try karein."
-                )
-
-# -----------------------------
-# TEXT CHAT
-# -----------------------------
-user_input = st.chat_input("Dost se baat karo...")
-
-if user_input:
-
-    # User message save
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_input
-        }
-    )
-
-    # User message show
-    with st.chat_message("user"):
-        st.write(user_input)
-
-    # AI response
-    with st.chat_message("assistant"):
-
-        with st.spinner("🤖 Dost soch raha hai..."):
-
-            try:
-
-                # Recent conversation prepare karo
-                conversation = []
-
-                for message in st.session_state.messages[-10:]:
-                    conversation.append(
-                        f'{message["role"]}: {message["content"]}'
-                    )
-
-                prompt = (
-                    SYSTEM_INSTRUCTION
-                    + "\n\nConversation:\n"
-                    + "\n".join(conversation)
-                    + "\n\nAb user ke latest message ka jawab do."
-                )
-
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=prompt
-                )
-
-                answer = response.text
-
-                st.write(answer)
-
-                # AI response save
-                st.session_state.messages.append(
+        with st.spinner("Dost tumhari awaaz samajh raha hai..."):
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=[
                     {
-                        "role": "assistant",
-                        "content": answer
-                    }
-                )
-
-            except Exception as e:
-                st.error(
-                    "AI server busy hai. Thori dair baad dobara try karein."
-                )
+                        "role": "user",
+                        "parts": [
+                           
