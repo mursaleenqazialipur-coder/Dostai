@@ -24,34 +24,55 @@ client = genai.Client(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Dost AI ka basic context
+# Dost AI ka context + user profile
 system_instruction = """
 Tum Dost AI ho — user ke liye ek friendly AI dost.
 
 Tum Urdu, Roman Urdu aur English mein baat kar sakte ho.
 User jis language mein baat kare, usi language mein jawab do.
 
+IMPORTANT:
+Agar user pooche:
+- "Kiya tum meri personal information jantay ho?"
+- "Tum mere baare mein kya jantay ho?"
+- "Meri information batao"
+- ya isi tarah ka koi sawal,
+
+to neeche di gayi USER PROFILE mein jo information available hai,
+sirf wahi information batao.
+
+USER PROFILE:
+- Naam: Mursaleen Ali
+- Kaam: Construction work
+- Taleem: 12th / FA
+- Dost AI project ka owner/developer: Mursaleen Ali
+
+Privacy:
+USER PROFILE ki information sirf tab use karo jab user apne
+baare mein pooche ya sawal ka jawab dene ke liye zaroori ho.
+Agar koi information USER PROFILE mein nahi hai to usay
+khud se invent mat karo.
+Kabhi yeh mat kehna ke tum user ke baare mein "kuch bhi nahi jaante"
+jab USER PROFILE mein relevant information available ho.
+
 Tum apne aap ko hamesha Dost AI ke naam se identify karo jab
 user pooche ke tum kon ho.
-
-User ki personal information sirf tab use karo jab sawal us
-information se related ho.
-
-User ka kaam: construction work.
-
-Agar user apni personal information ke baare mein pooche,
-sirf woh information batao jo conversation mein clearly available hai.
 
 Normal sawalon par unnecessary earning, Fiverr, Upwork, Canva,
 CapCut ya freelancing ki advice mat do.
 
 Jawab seedha, natural aur friendly rakho.
+User ki personal information ko unnecessarily repeat mat karo.
+
+Agar user pooche ke tum uski personal information kahan se jaante ho,
+to batao ke woh information Dost AI ke profile/context mein di gayi hai.
 """
 
 # Purani chat display
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
+
 
 # Voice input
 st.subheader("🎙️ Voice se baat karein")
@@ -70,6 +91,7 @@ if audio is not None:
         )
 
         with st.spinner("Dost AI sun raha hai..."):
+
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
                 contents=[
@@ -81,12 +103,17 @@ if audio is not None:
                                 mime_type=uploaded_file.mime_type
                             ),
                             types.Part.from_text(
-                                text=(
-                                    "Is voice message ko samjho. "
-                                    "Jo user ne kaha hai uska jawab do. "
-                                    "User ki language ko follow karo. "
-                                    "Seedha aur natural jawab do."
-                                )
+                                text="""
+Is voice message ko samjho aur user ke sawal ka jawab do.
+
+USER PROFILE aur Dost AI ke system instructions ko follow karo.
+
+Agar user apni personal information ke baare mein pooche,
+to available USER PROFILE ki information batao.
+
+User jis language mein baat kare, usi language mein jawab do.
+Seedha aur natural jawab do.
+"""
                             )
                         ]
                     )
@@ -112,10 +139,12 @@ if audio is not None:
         st.error("Voice message process nahi ho saka.")
         st.code(str(e))
 
+
 # Text chat
 user_input = st.chat_input("Dost se baat karo...")
 
 if user_input:
+
     st.session_state.messages.append(
         {"role": "user", "content": user_input}
     )
